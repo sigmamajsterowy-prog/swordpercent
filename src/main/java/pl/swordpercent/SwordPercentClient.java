@@ -12,13 +12,11 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ItemEnchantmentsComponent;
-import net.minecraft.enchantment.Enchantment;
+import net.minecraft.component.type.LoreComponent;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.text.Text;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.Box;
@@ -76,6 +74,12 @@ public class SwordPercentClient implements ClientModInitializer {
         PlayerEntity target = getLookedAtPlayer(mc);
         if (target == null) return;
 
+        ItemStack held = target.getMainHandStack();
+        if (held.isEmpty()) return;
+
+        LoreComponent lore = held.get(DataComponentTypes.LORE);
+        if (lore == null) return;
+
         TextRenderer tr = mc.textRenderer;
         MatrixStack m = ctx.getMatrices();
 
@@ -84,35 +88,10 @@ public class SwordPercentClient implements ClientModInitializer {
         m.scale(scale, scale, 1f);
 
         int y = 0;
-
-        ctx.drawCenteredTextWithShadow(tr, Text.literal(target.getName().getString()), 0, y, 0xFFFFFF);
-        y += 11;
-
-        ItemStack sword = findSword(target);
-        if (sword == null) {
-            ctx.drawCenteredTextWithShadow(tr, Text.literal("brak miecza"), 0, y, 0x888888);
-            m.pop();
-            return;
-        }
-
-        ctx.drawCenteredTextWithShadow(tr, sword.getName(), 0, y, 0xFFFFFF);
-        y += 11;
-
-        int max = sword.getMaxDamage();
-        int pct = Math.max(0, Math.round((max - sword.getDamage()) * 100f / max));
-        int color = pct > 50 ? 0x55FF55 : pct > 25 ? 0xFFFF55 : 0xFF5555;
-        ctx.drawCenteredTextWithShadow(tr, Text.literal("Wytrzymałość: " + pct + "%"), 0, y, color);
-        y += 11;
-
-        ItemEnchantmentsComponent ench =
-            sword.getOrDefault(DataComponentTypes.ENCHANTMENTS, ItemEnchantmentsComponent.DEFAULT);
-
-        if (ench.isEmpty()) {
-            ctx.drawCenteredTextWithShadow(tr, Text.literal("bez zaklęć"), 0, y, 0x888888);
-        } else {
-            for (var entry : ench.getEnchantmentEntries()) {
-                Text name = Enchantment.getName(entry.getKey(), entry.getIntValue());
-                ctx.drawCenteredTextWithShadow(tr, name, 0, y, 0xAAAAAA);
+        for (Text line : lore.lines()) {
+            String s = line.getString().toLowerCase();
+            if (s.contains("dodatkowe obra")) {
+                ctx.drawCenteredTextWithShadow(tr, line, 0, y, 0xFFFFFF);
                 y += 11;
             }
         }
@@ -136,17 +115,6 @@ public class SwordPercentClient implements ClientModInitializer {
         );
 
         return hit != null ? (PlayerEntity) hit.getEntity() : null;
-    }
-
-    private ItemStack findSword(PlayerEntity p) {
-        ItemStack hand = p.getMainHandStack();
-        if (hand.isIn(ItemTags.SWORDS)) return hand;
-
-        for (int i = 0; i < 9; i++) {
-            ItemStack s = p.getInventory().getStack(i);
-            if (s.isIn(ItemTags.SWORDS)) return s;
-        }
-        return null;
     }
 
     private static Path configPath() {
